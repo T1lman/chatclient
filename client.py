@@ -7,9 +7,9 @@ from datetime import datetime
 
 
 
-from RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
-from AES import generate_random_key as generate_aes_key, aes_encrypt, aes_decrypt
-from DES import generate_random_key as generate_des_key, des_encrypt_message as triple_des_encrypt, des_decrypt_message as triple_des_decrypt
+from encryptions.RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
+from encryptions.AES import generate_random_key as generate_aes_key, aes_encrypt, aes_decrypt
+from encryptions.DES import generate_random_key as generate_des_key, des_encrypt_message as triple_des_encrypt, des_decrypt_message as triple_des_decrypt
 
 class ChatClient:
     def __init__(self):
@@ -123,7 +123,7 @@ class ChatClient:
                 elif self.encryption_type == "3DES":
                     encrypted_message = triple_des_encrypt(message, self.triple_des_key).encode()
                 else:
-                    encrypted_message = message.encode()  # Plaintext
+                    encrypted_message = message.encode() 
                 self.client_socket.send(encrypted_message)
                 self.entry_field.delete(0, tk.END)
                 if message.lower() == "quit":
@@ -145,7 +145,7 @@ class ChatClient:
                         elif self.encryption_type == "3DES":
                             decrypted_message = triple_des_decrypt(encrypted_message.decode(), self.triple_des_key)
                         else:
-                            decrypted_message = encrypted_message.decode()  # Plaintext
+                            decrypted_message = encrypted_message.decode()
                         self.display_message(decrypted_message)
                     except Exception as e:
                         print(f"Error decrypting message: {e}")

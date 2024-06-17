@@ -6,9 +6,9 @@ import socket
 from datetime import datetime
 
 
-from RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
-from AES import generate_random_key as generate_aes_key, aes_encrypt, aes_decrypt
-from DES import generate_random_key as generate_des_key, des_encrypt_message as triple_des_encrypt, des_decrypt_message as triple_des_decrypt
+from encryptions.RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
+from encryptions.AES import generate_random_key as generate_aes_key, aes_encrypt, aes_decrypt
+from encryptions.DES import generate_random_key as generate_des_key, des_encrypt_message as triple_des_encrypt, des_decrypt_message as triple_des_decrypt
 
 class ChatServer:
     def __init__(self):
@@ -92,7 +92,6 @@ class ChatServer:
                 aes_key = conn.recv(4096)
                 self.client_aes_keys[conn] = aes_key.decode()
             elif encryption_type == "3DES":
-                # Receive 3DES key from client
                 triple_des_key = list(conn.recv(4096))
                 self.client_3des_keys[conn] = triple_des_key
 

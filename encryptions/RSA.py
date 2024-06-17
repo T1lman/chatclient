@@ -90,7 +90,5 @@ if __name__ == "__main__":
     message = "Hello, RSA!"
     encrypted_message = encrypt(message.encode(), public_key)
     decrypted_message = decrypt(encrypted_message, private_key)
-
-    print("Original message:", message)
     print("Encrypted message:", encrypted_message)
-    print("Decrypted message:", decrypted_message.decode())
+    print("Decrypted message:", decrypted_message)
