@@ -1,6 +1,5 @@
-# Client
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
 import threading
 import socket
@@ -31,10 +30,26 @@ class ChatClient:
         self.encryption_menu = tk.OptionMenu(self.root, self.encryption_var, "None", "RSA", "AES", "3DES")
         self.encryption_menu.pack(padx=10, pady=5)
 
+        self.rsa_key_button = tk.Button(self.root, text="Custom RSA Key", command=self.load_rsa_key)
+        self.rsa_key_button.pack(padx=10, pady=5)
+
         self.connect_button = tk.Button(self.root, text="Connect", command=self.connect_to_server, bg="lightblue")
         self.connect_button.pack(padx=10, pady=10)
 
         self.root.mainloop()
+
+    def load_rsa_key(self):
+        key_file = filedialog.askopenfilename(title="Select RSA Key File")
+        if key_file:
+            try:
+                with open(key_file, 'r') as f:
+                    key_data = f.read().strip()
+                    public_key_str, private_key_str = key_data.split("\n")
+                    self.public_key = tuple(map(int, public_key_str.strip("()").split(",")))
+                    self.private_key = tuple(map(int, private_key_str.strip("()").split(",")))
+                    messagebox.showinfo("RSA Key Loaded", "Custom RSA key has been loaded successfully.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load RSA key: {e}")
 
     def connect_to_server(self):
         self.host = self.host_entry.get()
@@ -72,6 +87,7 @@ class ChatClient:
         self.port_entry.pack_forget()
         self.encryption_label.pack_forget()
         self.encryption_menu.pack_forget()
+        self.rsa_key_button.pack_forget()
         self.connect_button.pack_forget()
 
         self.info_area = ScrolledText(self.root, wrap=tk.WORD, state='disabled', height=5)
@@ -84,7 +100,8 @@ class ChatClient:
         self.entry_field.pack(padx=10, pady=10, fill=tk.X, expand=False)
         self.entry_field.bind("<Return>", self.send_message)
 
-        self.public_key, self.private_key = generate_rsa_key(16)
+        if not hasattr(self, 'public_key') or not hasattr(self, 'private_key'):
+            self.public_key, self.private_key = generate_rsa_key(16)
 
     def exchange_public_keys(self):
         self.client_socket.send(f"{self.public_key[0]},{self.public_key[1]}".encode())
@@ -121,7 +138,7 @@ class ChatClient:
                 elif self.encryption_type == "3DES":
                     encrypted_message = triple_des_encrypt(message, self.triple_des_key).encode()
                 else:
-                    encrypted_message = message.encode() 
+                    encrypted_message = message.encode()
                 self.client_socket.send(encrypted_message)
                 self.entry_field.delete(0, tk.END)
                 if message.lower() == "quit":

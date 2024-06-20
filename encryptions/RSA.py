@@ -88,6 +88,7 @@ def decrypt(encrypted_bytes, private_key):
 if __name__ == "__main__":
     public_key, private_key = generate_keypair(16)
     message = "Hello, RSA!"
+    print(generate_keypair())
     encrypted_message = encrypt(message.encode(), public_key)
     decrypted_message = decrypt(encrypted_message, private_key)
     print("Encrypted message:", encrypted_message)
