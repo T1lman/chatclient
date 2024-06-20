@@ -100,6 +100,9 @@ class ChatClient:
         self.entry_field.pack(padx=10, pady=10, fill=tk.X, expand=False)
         self.entry_field.bind("<Return>", self.send_message)
 
+        self.restart_button = tk.Button(self.root, text="Restart", command=self.restart_client)
+        self.restart_button.pack(padx=10, pady=5)
+
         if not hasattr(self, 'public_key') or not hasattr(self, 'private_key'):
             self.public_key, self.private_key = generate_rsa_key(16)
 
@@ -182,6 +185,11 @@ class ChatClient:
     def start_receiving_thread(self):
         self.receive_thread = threading.Thread(target=self.receive_messages)
         self.receive_thread.start()
+
+    def restart_client(self):
+        self.client_socket.close()
+        self.root.destroy()
+        self.__init__()
 
 if __name__ == "__main__":
     client = ChatClient()
