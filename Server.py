@@ -1,10 +1,10 @@
+# Server
 import tkinter as tk
 from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 import threading
 import socket
 from datetime import datetime
-
 
 from encryptions.RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
 from encryptions.AES import generate_random_key as generate_aes_key, aes_encrypt, aes_decrypt
@@ -80,20 +80,24 @@ class ChatServer:
 
     def handle_client(self, conn, addr):
         try:
-            encryption_type = conn.recv(4096).decode()
+            # Exchange public keys
+            conn.send(f"{self.public_key[0]},{self.public_key[1]}".encode())
+            client_public_key_str = conn.recv(4096).decode()
+            client_public_key = tuple(map(int, client_public_key_str.split(',')))
+            self.client_public_keys[conn] = client_public_key
+
+            encryption_type_encrypted = conn.recv(4096)
+            encryption_type = rsa_decrypt(encryption_type_encrypted, self.private_key)
             self.encryption_methods[conn] = encryption_type
 
-            if encryption_type == "RSA":
-                client_public_key_str = conn.recv(4096).decode()
-                client_public_key = tuple(map(int, client_public_key_str.split(',')))
-                self.client_public_keys[conn] = client_public_key
-                conn.send(f"{self.public_key[0]},{self.public_key[1]}".encode())
-            elif encryption_type == "AES":
-                aes_key = conn.recv(4096)
-                self.client_aes_keys[conn] = aes_key.decode()
+            if encryption_type == "AES":
+                aes_key_encrypted = conn.recv(4096)
+                aes_key = rsa_decrypt(aes_key_encrypted, self.private_key)
+                self.client_aes_keys[conn] = aes_key
             elif encryption_type == "3DES":
-                triple_des_key = list(conn.recv(4096))
-                self.client_3des_keys[conn] = triple_des_key
+                triple_des_key_encrypted = conn.recv(4096)
+                triple_des_key = list(rsa_decrypt(triple_des_key_encrypted, self.private_key).encode())
+                self.client_3des_keys[conn] = list(triple_des_key)
 
             self.update_clients_area()
 

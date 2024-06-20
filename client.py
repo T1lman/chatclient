@@ -1,11 +1,10 @@
+# Client
 import tkinter as tk
 from tkinter import messagebox
 from tkinter.scrolledtext import ScrolledText
 import threading
 import socket
 from datetime import datetime
-
-
 
 from encryptions.RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
 from encryptions.AES import generate_random_key as generate_aes_key, aes_encrypt, aes_decrypt
@@ -50,16 +49,16 @@ class ChatClient:
             self.root.title(f"{self.host}:{self.port} - Chat Client")
 
             self.setup_chat_interface()
+            self.exchange_public_keys()
             self.send_encryption_type()
-            if self.encryption_type == "RSA":
-                self.send_public_key()
-                self.receive_server_public_key()
-            elif self.encryption_type == "AES":
+            if self.encryption_type == "AES":
                 self.aes_key = generate_aes_key()
-                self.client_socket.send(self.aes_key.encode())
+                encrypted_aes_key = rsa_encrypt(self.aes_key.encode(), self.server_public_key)
+                self.client_socket.send(encrypted_aes_key)
             elif self.encryption_type == "3DES":
                 self.triple_des_key = generate_des_key()
-                self.client_socket.send(bytes(self.triple_des_key))
+                encrypted_3des_key = rsa_encrypt(bytes(self.triple_des_key), self.server_public_key)
+                self.client_socket.send(encrypted_3des_key)
             self.start_receiving_thread()
             self.display_encryption_info()
         except (ValueError, socket.error) as e:
@@ -87,15 +86,14 @@ class ChatClient:
 
         self.public_key, self.private_key = generate_rsa_key(16)
 
-    def send_encryption_type(self):
-        self.client_socket.send(self.encryption_type.encode())
-
-    def send_public_key(self):
+    def exchange_public_keys(self):
         self.client_socket.send(f"{self.public_key[0]},{self.public_key[1]}".encode())
-
-    def receive_server_public_key(self):
         server_public_key_str = self.client_socket.recv(4096).decode()
         self.server_public_key = tuple(map(int, server_public_key_str.split(',')))
+
+    def send_encryption_type(self):
+        encrypted_encryption_type = rsa_encrypt(self.encryption_type.encode(), self.server_public_key)
+        self.client_socket.send(encrypted_encryption_type)
 
     def display_encryption_info(self):
         self.info_area.configure(state='normal')
