@@ -1,3 +1,4 @@
+# Importieren der notwendigen Module
 import tkinter as tk
 from tkinter import messagebox, filedialog
 from tkinter.scrolledtext import ScrolledText
@@ -11,34 +12,41 @@ from encryptions.DES import generate_random_key as generate_des_key, des_encrypt
 
 class ChatClient:
     def __init__(self):
+        # Initialisierung der Benutzeroberfläche
         self.root = tk.Tk()
         self.root.title("Chat Client Configuration")
 
+        # Host-Adresse Eingabefeld
         self.host_label = tk.Label(self.root, text="Host Address:")
         self.host_label.pack(padx=10, pady=5)
         self.host_entry = tk.Entry(self.root)
         self.host_entry.pack(padx=10, pady=5)
 
+        # Port Eingabefeld
         self.port_label = tk.Label(self.root, text="Port:")
         self.port_label.pack(padx=10, pady=5)
         self.port_entry = tk.Entry(self.root)
         self.port_entry.pack(padx=10, pady=5)
 
+        # Verschlüsselungsmethode Auswahl
         self.encryption_label = tk.Label(self.root, text="Encryption:")
         self.encryption_label.pack(padx=10, pady=5)
         self.encryption_var = tk.StringVar(value="None")
         self.encryption_menu = tk.OptionMenu(self.root, self.encryption_var, "None", "RSA", "AES", "3DES")
         self.encryption_menu.pack(padx=10, pady=5)
 
+        # Button zum Laden eines benutzerdefinierten RSA-Schlüssels
         self.rsa_key_button = tk.Button(self.root, text="Custom RSA Key", command=self.load_rsa_key)
         self.rsa_key_button.pack(padx=10, pady=5)
 
+        # Button zum Verbinden mit dem Server
         self.connect_button = tk.Button(self.root, text="Connect", command=self.connect_to_server, bg="lightblue")
         self.connect_button.pack(padx=10, pady=10)
 
         self.root.mainloop()
 
     def load_rsa_key(self):
+        # Laden eines benutzerdefinierten RSA-Schlüssels aus einer Datei
         key_file = filedialog.askopenfilename(title="Select RSA Key File")
         if key_file:
             try:
@@ -47,17 +55,18 @@ class ChatClient:
                     public_key_str, private_key_str = key_data.split("\n")
                     self.public_key = tuple(map(int, public_key_str.strip("()").split(",")))
                     self.private_key = tuple(map(int, private_key_str.strip("()").split(",")))
-                    messagebox.showinfo("RSA Key Loaded", "Custom RSA key has been loaded successfully.")
+                    messagebox.showinfo("RSA Key Loaded", "Benutzerdefinierter RSA-Schlüssel wurde erfolgreich geladen.")
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to load RSA key: {e}")
+                messagebox.showerror("Error", f"Fehler beim Laden des RSA-Schlüssels: {e}")
 
     def connect_to_server(self):
+        # Verbindung zum Server herstellen
         self.host = self.host_entry.get()
         self.encryption_type = self.encryption_var.get()
         try:
             self.port = int(self.port_entry.get())
             if not self.host or not self.port:
-                raise ValueError("Host and port must be specified")
+                raise ValueError("Host und Port müssen angegeben werden")
 
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.connect((self.host, self.port))
@@ -77,10 +86,11 @@ class ChatClient:
             self.start_receiving_thread()
             self.display_encryption_info()
         except (ValueError, socket.error) as e:
-            messagebox.showerror("Connection Error", f"Failed to connect to {self.host}:{self.port}\n{e}")
+            messagebox.showerror("Connection Error", f"Fehler beim Verbinden mit {self.host}:{self.port}\n{e}")
             self.root.title("Chat Client Configuration")
 
     def setup_chat_interface(self):
+        # Benutzeroberfläche für den Chat einrichten
         self.host_label.pack_forget()
         self.host_entry.pack_forget()
         self.port_label.pack_forget()
@@ -107,15 +117,18 @@ class ChatClient:
             self.public_key, self.private_key = generate_rsa_key(16)
 
     def exchange_public_keys(self):
+        # Öffentliche Schlüssel austauschen
         self.client_socket.send(f"{self.public_key[0]},{self.public_key[1]}".encode())
         server_public_key_str = self.client_socket.recv(4096).decode()
         self.server_public_key = tuple(map(int, server_public_key_str.split(',')))
 
     def send_encryption_type(self):
+        # Verschlüsselungstyp an den Server senden
         encrypted_encryption_type = rsa_encrypt(self.encryption_type.encode(), self.server_public_key)
         self.client_socket.send(encrypted_encryption_type)
 
     def display_encryption_info(self):
+        # Anzeigen der Verschlüsselungsinformationen
         self.info_area.configure(state='normal')
         self.info_area.delete(1.0, tk.END)
         self.info_area.insert(tk.END, f"My Address: {self.client_socket.getsockname()}\n")
@@ -131,6 +144,7 @@ class ChatClient:
         self.info_area.configure(state='disabled')
 
     def send_message(self, event=None):
+        # Nachricht an den Server senden
         message = self.entry_field.get()
         if message:
             try:
@@ -148,10 +162,11 @@ class ChatClient:
                     self.client_socket.close()
                     self.root.quit()
             except Exception as e:
-                print(f"Error sending message: {e}")
+                print(f"Fehler beim Senden der Nachricht: {e}")
 
     def receive_messages(self):
         while True:
+            # Nachrichten vom Server empfangen
             try:
                 encrypted_message = self.client_socket.recv(4096)
                 if encrypted_message:
@@ -166,14 +181,15 @@ class ChatClient:
                             decrypted_message = encrypted_message.decode()
                         self.display_message(decrypted_message)
                     except Exception as e:
-                        print(f"Error decrypting message: {e}")
+                        print(f"Fehler beim Entschlüsseln der Nachricht: {e}")
                 else:
                     break
             except Exception as e:
-                print(f"Error receiving message: {e}")
+                print(f"Fehler beim Empfangen der Nachricht: {e}")
                 break
 
     def display_message(self, message):
+        # Nachricht im Chat-Fenster anzeigen
         currentDateAndTime = datetime.now()
         currentTime = currentDateAndTime.strftime("%H:%M:%S")
 
@@ -183,10 +199,12 @@ class ChatClient:
         self.chat_area.see(tk.END)
 
     def start_receiving_thread(self):
+        # Thread zum Empfangen von Nachrichten starten
         self.receive_thread = threading.Thread(target=self.receive_messages)
         self.receive_thread.start()
 
     def restart_client(self):
+        # Client neu starten und zur Konfigurationsansicht zurückkehren
         self.client_socket.close()
         self.root.destroy()
         self.__init__()
