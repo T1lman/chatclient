@@ -33,22 +33,35 @@ class ChatClient:
         self.port_entry = tk.Entry(self.root)
         self.port_entry.pack(padx=10, pady=5)
 
+        # Button zum Verbinden mit dem Server
+        self.connect_button = tk.Button(self.root, text="Connect", command=self.connect_to_server, bg="lightblue")
+        self.connect_button.pack(side=tk.LEFT, padx=10, pady=10)
+
+        # Button für Einstellungen
+        self.settings_button = tk.Button(self.root, text="⚙️", command=self.open_settings, bg="lightgray")
+        self.settings_button.pack(side=tk.RIGHT, padx=10, pady=10)
+
+        self.root.mainloop()
+
+    def open_settings(self):
+        # Neues Fenster für Einstellungen öffnen
+        self.settings_window = tk.Toplevel(self.root)
+        self.settings_window.title("Settings")
+
         # Verschlüsselungsmethode Auswahl
-        self.encryption_label = tk.Label(self.root, text="Encryption:")
+        self.encryption_label = tk.Label(self.settings_window, text="Encryption:")
         self.encryption_label.pack(padx=10, pady=5)
         self.encryption_var = tk.StringVar(value="None")
-        self.encryption_menu = tk.OptionMenu(self.root, self.encryption_var, "None", "RSA", "AES", "3DES")
+        self.encryption_menu = tk.OptionMenu(self.settings_window, self.encryption_var, "None", "RSA", "AES", "3DES")
         self.encryption_menu.pack(padx=10, pady=5)
 
         # Button zum Laden eines benutzerdefinierten RSA-Schlüssels
-        self.rsa_key_button = tk.Button(self.root, text="Custom RSA Key", command=self.load_rsa_key)
+        self.rsa_key_button = tk.Button(self.settings_window, text="Custom RSA Key", command=self.load_rsa_key)
         self.rsa_key_button.pack(padx=10, pady=5)
 
-        # Button zum Verbinden mit dem Server
-        self.connect_button = tk.Button(self.root, text="Connect", command=self.connect_to_server, bg="lightblue")
-        self.connect_button.pack(padx=10, pady=10)
-
-        self.root.mainloop()
+        # Button zum Anwenden der Einstellungen
+        self.apply_button = tk.Button(self.settings_window, text="Apply", command=self.apply_settings)
+        self.apply_button.pack(padx=10, pady=10)
 
     def load_rsa_key(self):
         # Laden eines benutzerdefinierten RSA-Schlüssels aus einer Datei
@@ -65,10 +78,15 @@ class ChatClient:
                 logging.error("Fehler beim Laden des RSA-Schlüssels: %s\n%s", e, traceback.format_exc())
                 messagebox.showerror("Error", f"Fehler beim Laden des RSA-Schlüssels: {e}")
 
+    def apply_settings(self):
+        # Einstellungen anwenden und das Fenster schließen
+        self.encryption_type = self.encryption_var.get()
+        self.settings_window.destroy()
+
     def connect_to_server(self):
         # Verbindung zum Server herstellen
         self.host = self.host_entry.get()
-        self.encryption_type = self.encryption_var.get()
+        self.encryption_type = getattr(self, 'encryption_type', 'None')
         try:
             self.port = int(self.port_entry.get())
             if not self.host or not self.port:
@@ -102,10 +120,8 @@ class ChatClient:
         self.host_entry.pack_forget()
         self.port_label.pack_forget()
         self.port_entry.pack_forget()
-        self.encryption_label.pack_forget()
-        self.encryption_menu.pack_forget()
-        self.rsa_key_button.pack_forget()
         self.connect_button.pack_forget()
+        self.settings_button.pack_forget()
 
         self.info_area = ScrolledText(self.root, wrap=tk.WORD, state='disabled', height=5)
         self.info_area.pack(padx=10, pady=10, fill=tk.X, expand=False)
@@ -215,23 +231,23 @@ class ChatClient:
     def restart_client(self):
         self.root.destroy()
         self.client_socket.close()
-        message="quit"
+        message = "quit"
         try:
-                if self.encryption_type == "RSA":
-                    encrypted_message = rsa_encrypt(message.encode(), self.server_public_key)
-                elif self.encryption_type == "AES":
-                    encrypted_message = aes_encrypt(message, self.aes_key)
-                elif self.encryption_type == "3DES":
-                    encrypted_message = triple_des_encrypt(message, self.triple_des_key).encode()
-                else:
-                    encrypted_message = message.encode()
-                self.client_socket.send(encrypted_message)
-                self.entry_field.delete(0, tk.END)
-                if message.lower() == "quit":
-                    self.client_socket.close()
-                    self.root.quit()
+            if self.encryption_type == "RSA":
+                encrypted_message = rsa_encrypt(message.encode(), self.server_public_key)
+            elif self.encryption_type == "AES":
+                encrypted_message = aes_encrypt(message, self.aes_key)
+            elif self.encryption_type == "3DES":
+                encrypted_message = triple_des_encrypt(message, self.triple_des_key).encode()
+            else:
+                encrypted_message = message.encode()
+            self.client_socket.send(encrypted_message)
+            self.entry_field.delete(0, tk.END)
+            if message.lower() == "quit":
+                self.client_socket.close()
+                self.root.quit()
         except Exception as e:
-                logging.error("Fehler beim Neustarten des Server: %s\n%s", e, traceback.format_exc())
+            logging.error("Fehler beim Neustarten des Server: %s\n%s", e, traceback.format_exc())
         self.__init__()
 
 if __name__ == "__main__":
