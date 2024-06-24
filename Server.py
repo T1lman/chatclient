@@ -5,10 +5,19 @@ from tkinter.scrolledtext import ScrolledText
 import threading
 import socket
 from datetime import datetime
+import logging
+import traceback
+
+
 
 from encryptions.RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
 from encryptions.AES import generate_random_key as generate_aes_key, aes_encrypt, aes_decrypt
 from encryptions.DES import generate_random_key as generate_des_key, des_encrypt_message as triple_des_encrypt, des_decrypt_message as triple_des_decrypt
+
+
+# Setup logging
+logging.basicConfig(filename='chat_server.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class ChatServer:
     def __init__(self):
@@ -51,8 +60,9 @@ class ChatServer:
             self.setup_chat_interface()
             self.start_accepting_thread()
         except (ValueError, socket.error) as e:
-            messagebox.showerror("Server Error", f"Fehler beim Hosting des Servers auf {self.host}:{self.port}\n{e}")
-            self.root.title("Chat Server Configuration")
+            logging.error("Fehler beim Starten des Servers \n%s", traceback.format_exc())
+            messagebox.showerror("Error", f"Fehler beim Starten des Server \n{e}")
+
 
     def setup_chat_interface(self):
         # Benutzeroberfläche für den Chat einrichten
@@ -82,10 +92,14 @@ class ChatServer:
 
     def accept_clients(self):
         while True:
-            # Akzeptieren neuer Verbindungen
-            conn, addr = self.server_socket.accept()
-            self.clients.append(conn)
-            threading.Thread(target=self.handle_client, args=(conn, addr)).start()
+            # Client-Verbindungen akzeptieren
+            try:
+                client_socket, client_address = self.server_socket.accept()
+                self.clients.append(client_socket)
+                threading.Thread(target=self.handle_client, args=(client_socket, client_address), daemon=True).start()
+            except Exception as e:
+                logging.error("Fehler beim Akzeptieren der Client-Verbindung\n%s", traceback.format_exc())
+                break
 
     def handle_client(self, conn, addr):
         try:
@@ -127,11 +141,11 @@ class ChatServer:
                             decrypted_message = message.decode()
                         self.broadcast_message(f"{addr}: {decrypted_message}")
                     except Exception as e:
-                        print(f"Fehler beim Entschlüsseln der Nachricht von {addr}: {e}")
+                        logging.error("Fehler beim Empfangen oder Entschlüsseln der Nachricht\n%s", traceback.format_exc())
                 else:
                     break
         except Exception as e:
-            print(f"Fehler bei der Handhabung des Clients {addr}: {e}")
+            logging.error("Fehler beim Verarbeiten des Clients %s\n%s", addr, traceback.format_exc())
         finally:
             # Verbindung schließen und Client entfernen
             conn.close()
@@ -144,7 +158,7 @@ class ChatServer:
         currentTime = currentDateAndTime.strftime("%H:%M:%S")
 
         self.messages_area.configure(state='normal')
-        self.messages_area.insert(tk.END, currentTime + " " + message + "\n")
+        self.messages_area.insert(tk.END, "["+ currentTime+ "] "  + message + "\n")
         self.messages_area.configure(state='disabled')
         self.messages_area.see(tk.END)
 
@@ -160,12 +174,13 @@ class ChatServer:
                     encrypted_message = message.encode()
                 client.send(encrypted_message)
             except Exception as e:
-                print(f"Fehler beim Senden der Nachricht an den Client {client.getpeername()}: {e}")
+                logging.error("Fehler beim Senden der Nachricht an %s\n%s", client.getpeername(), traceback.format_exc())
 
     def update_clients_area(self):
-        # Aktualisierung der Clients-Anzeige
+        # Bereich der verbundenen Clients aktualisieren
         self.clients_area.configure(state='normal')
         self.clients_area.delete(1.0, tk.END)
+        self.clients_area.insert(tk.END, f"Connected Users: {len(self.clients)}\n\n")
         for client in self.clients:
             encryption_type = self.encryption_methods.get(client, "Unknown")
             client_info = f"Client {client.getpeername()} - Encryption: {encryption_type}"
@@ -173,6 +188,14 @@ class ChatServer:
                 client_info += f" - Client Public Key: {self.client_public_keys.get(client)}"
             self.clients_area.insert(tk.END, client_info + "\n")
         self.clients_area.configure(state='disabled')
+
+    def show_error_message(self, message):
+        # Fehlernachricht in der Benutzeroberfläche anzeigen
+        error_root = tk.Tk()
+        error_root.title("Error")
+        tk.Label(error_root, text=message, padx=10, pady=10).pack()
+        tk.Button(error_root, text="OK", command=error_root.destroy, padx=10, pady=10).pack()
+        error_root.mainloop()
 
 if __name__ == "__main__":
     server = ChatServer()

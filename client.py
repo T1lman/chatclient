@@ -5,10 +5,15 @@ from tkinter.scrolledtext import ScrolledText
 import threading
 import socket
 from datetime import datetime
+import logging
+import traceback
 
 from encryptions.RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
 from encryptions.AES import generate_random_key as generate_aes_key, aes_encrypt, aes_decrypt
 from encryptions.DES import generate_random_key as generate_des_key, des_encrypt_message as triple_des_encrypt, des_decrypt_message as triple_des_decrypt
+
+# Setup logging
+logging.basicConfig(filename='chat_client.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class ChatClient:
     def __init__(self):
@@ -57,6 +62,7 @@ class ChatClient:
                     self.private_key = tuple(map(int, private_key_str.strip("()").split(",")))
                     messagebox.showinfo("RSA Key Loaded", "Benutzerdefinierter RSA-Schlüssel wurde erfolgreich geladen.")
             except Exception as e:
+                logging.error("Fehler beim Laden des RSA-Schlüssels: %s\n%s", e, traceback.format_exc())
                 messagebox.showerror("Error", f"Fehler beim Laden des RSA-Schlüssels: {e}")
 
     def connect_to_server(self):
@@ -86,6 +92,7 @@ class ChatClient:
             self.start_receiving_thread()
             self.display_encryption_info()
         except (ValueError, socket.error) as e:
+            logging.error("Fehler beim Verbinden mit %s:%s\n%s", self.host, self.port, traceback.format_exc())
             messagebox.showerror("Connection Error", f"Fehler beim Verbinden mit {self.host}:{self.port}\n{e}")
             self.root.title("Chat Client Configuration")
 
@@ -118,14 +125,20 @@ class ChatClient:
 
     def exchange_public_keys(self):
         # Öffentliche Schlüssel austauschen
-        self.client_socket.send(f"{self.public_key[0]},{self.public_key[1]}".encode())
-        server_public_key_str = self.client_socket.recv(4096).decode()
-        self.server_public_key = tuple(map(int, server_public_key_str.split(',')))
+        try:
+            self.client_socket.send(f"{self.public_key[0]},{self.public_key[1]}".encode())
+            server_public_key_str = self.client_socket.recv(4096).decode()
+            self.server_public_key = tuple(map(int, server_public_key_str.split(',')))
+        except Exception as e:
+            logging.error("Fehler beim Austausch der öffentlichen Schlüssel: %s\n%s", e, traceback.format_exc())
 
     def send_encryption_type(self):
         # Verschlüsselungstyp an den Server senden
-        encrypted_encryption_type = rsa_encrypt(self.encryption_type.encode(), self.server_public_key)
-        self.client_socket.send(encrypted_encryption_type)
+        try:
+            encrypted_encryption_type = rsa_encrypt(self.encryption_type.encode(), self.server_public_key)
+            self.client_socket.send(encrypted_encryption_type)
+        except Exception as e:
+            logging.error("Fehler beim Senden des Verschlüsselungstyps: %s\n%s", e, traceback.format_exc())
 
     def display_encryption_info(self):
         # Anzeigen der Verschlüsselungsinformationen
@@ -162,51 +175,63 @@ class ChatClient:
                     self.client_socket.close()
                     self.root.quit()
             except Exception as e:
-                print(f"Fehler beim Senden der Nachricht: {e}")
+                logging.error("Fehler beim Senden der Nachricht: %s\n%s", e, traceback.format_exc())
 
     def receive_messages(self):
         while True:
             # Nachrichten vom Server empfangen
             try:
                 encrypted_message = self.client_socket.recv(4096)
-                if encrypted_message:
-                    try:
-                        if self.encryption_type == "RSA":
-                            decrypted_message = rsa_decrypt(encrypted_message, self.private_key)
-                        elif self.encryption_type == "AES":
-                            decrypted_message = aes_decrypt(encrypted_message, self.aes_key)
-                        elif self.encryption_type == "3DES":
-                            decrypted_message = triple_des_decrypt(encrypted_message.decode(), self.triple_des_key)
-                        else:
-                            decrypted_message = encrypted_message.decode()
-                        self.display_message(decrypted_message)
-                    except Exception as e:
-                        print(f"Fehler beim Entschlüsseln der Nachricht: {e}")
-                else:
+                if not encrypted_message:
                     break
+
+                if self.encryption_type == "RSA":
+                    message = rsa_decrypt(encrypted_message, self.private_key)
+                elif self.encryption_type == "AES":
+                    message = aes_decrypt(encrypted_message, self.aes_key)
+                elif self.encryption_type == "3DES":
+                    message = triple_des_decrypt(encrypted_message.decode(), self.triple_des_key)
+                else:
+                    message = encrypted_message.decode()
+                self.display_message(message)
             except Exception as e:
-                print(f"Fehler beim Empfangen der Nachricht: {e}")
+                logging.error("Fehler beim Empfangen der Nachricht: %s\n%s", e, traceback.format_exc())
                 break
 
     def display_message(self, message):
         # Nachricht im Chat-Fenster anzeigen
         currentDateAndTime = datetime.now()
         currentTime = currentDateAndTime.strftime("%H:%M:%S")
-
         self.chat_area.configure(state='normal')
-        self.chat_area.insert(tk.END, currentTime + " " + message + "\n")
+        self.chat_area.insert(tk.END, f"[{currentTime}] {message}\n")
         self.chat_area.configure(state='disabled')
         self.chat_area.see(tk.END)
 
     def start_receiving_thread(self):
         # Thread zum Empfangen von Nachrichten starten
-        self.receive_thread = threading.Thread(target=self.receive_messages)
+        self.receive_thread = threading.Thread(target=self.receive_messages, daemon=True)
         self.receive_thread.start()
 
     def restart_client(self):
-        # Client neu starten und zur Konfigurationsansicht zurückkehren
-        self.client_socket.close()
         self.root.destroy()
+        self.client_socket.close()
+        message="quit"
+        try:
+                if self.encryption_type == "RSA":
+                    encrypted_message = rsa_encrypt(message.encode(), self.server_public_key)
+                elif self.encryption_type == "AES":
+                    encrypted_message = aes_encrypt(message, self.aes_key)
+                elif self.encryption_type == "3DES":
+                    encrypted_message = triple_des_encrypt(message, self.triple_des_key).encode()
+                else:
+                    encrypted_message = message.encode()
+                self.client_socket.send(encrypted_message)
+                self.entry_field.delete(0, tk.END)
+                if message.lower() == "quit":
+                    self.client_socket.close()
+                    self.root.quit()
+        except Exception as e:
+                logging.error("Fehler beim Neustarten des Server: %s\n%s", e, traceback.format_exc())
         self.__init__()
 
 if __name__ == "__main__":
