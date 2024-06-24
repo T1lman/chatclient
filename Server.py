@@ -152,6 +152,7 @@ class ChatServer:
             self.clients.remove(conn)
             self.update_clients_area()
 
+
     def broadcast_message(self, message):
         # Nachricht an alle Clients senden
         currentDateAndTime = datetime.now()
@@ -181,13 +182,20 @@ class ChatServer:
         self.clients_area.configure(state='normal')
         self.clients_area.delete(1.0, tk.END)
         self.clients_area.insert(tk.END, f"Connected Users: {len(self.clients)}\n\n")
+        client_info_list = []
         for client in self.clients:
             encryption_type = self.encryption_methods.get(client, "Unknown")
             client_info = f"Client {client.getpeername()} - Encryption: {encryption_type}"
             if encryption_type == "RSA":
                 client_info += f" - Client Public Key: {self.client_public_keys.get(client)}"
             self.clients_area.insert(tk.END, client_info + "\n")
+            client_info_list.append(client_info)
         self.clients_area.configure(state='disabled')
+
+        # Send list of connected users to all clients
+        connected_users_message = "Connected Users:\n" + "\n".join(client_info_list)
+        self.broadcast_message(connected_users_message)
+
 
     def show_error_message(self, message):
         # Fehlernachricht in der Benutzeroberfläche anzeigen

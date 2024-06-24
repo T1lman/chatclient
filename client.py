@@ -114,6 +114,7 @@ class ChatClient:
             messagebox.showerror("Connection Error", f"Fehler beim Verbinden mit {self.host}:{self.port}\n{e}")
             self.root.title("Chat Client Configuration")
 
+
     def setup_chat_interface(self):
         # Benutzeroberfläche für den Chat einrichten
         self.host_label.pack_forget()
@@ -125,6 +126,9 @@ class ChatClient:
 
         self.info_area = ScrolledText(self.root, wrap=tk.WORD, state='disabled', height=5)
         self.info_area.pack(padx=10, pady=10, fill=tk.X, expand=False)
+
+        self.connected_users_area = ScrolledText(self.root, wrap=tk.WORD, state='disabled', height=10)
+        self.connected_users_area.pack(padx=10, pady=10, fill=tk.X, expand=False)
 
         self.chat_area = ScrolledText(self.root, wrap=tk.WORD, state='disabled')
         self.chat_area.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
@@ -138,6 +142,9 @@ class ChatClient:
 
         if not hasattr(self, 'public_key') or not hasattr(self, 'private_key'):
             self.public_key, self.private_key = generate_rsa_key(16)
+
+
+
 
     def exchange_public_keys(self):
         # Öffentliche Schlüssel austauschen
@@ -209,10 +216,16 @@ class ChatClient:
                     message = triple_des_decrypt(encrypted_message.decode(), self.triple_des_key)
                 else:
                     message = encrypted_message.decode()
-                self.display_message(message)
+                
+                if message.startswith("Connected Users:"):
+                    self.update_connected_users(message)
+                else:
+                    self.display_message(message)
             except Exception as e:
                 logging.error("Fehler beim Empfangen der Nachricht: %s\n%s", e, traceback.format_exc())
                 break
+
+        
 
     def display_message(self, message):
         # Nachricht im Chat-Fenster anzeigen
@@ -249,6 +262,11 @@ class ChatClient:
         except Exception as e:
             logging.error("Fehler beim Neustarten des Server: %s\n%s", e, traceback.format_exc())
         self.__init__()
+    def update_connected_users(self, connected_users):
+        self.connected_users_area.configure(state='normal')
+        self.connected_users_area.delete(1.0, tk.END)
+        self.connected_users_area.insert(tk.END, connected_users)
+        self.connected_users_area.configure(state='disabled')
 
 if __name__ == "__main__":
     client = ChatClient()
