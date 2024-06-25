@@ -7,7 +7,7 @@ import socket
 from datetime import datetime
 import logging
 import traceback
-
+import os
 
 
 from encryptions.RSA import generate_keypair as generate_rsa_key, encrypt as rsa_encrypt, decrypt as rsa_decrypt
@@ -17,6 +17,8 @@ from encryptions.DES import generate_random_key as generate_des_key, des_encrypt
 
 # Setup logging
 logging.basicConfig(filename='chat_server.log', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+CHAT_HISTORY_FILE = 'chat_history.log'
 
 
 class ChatServer:
@@ -58,6 +60,7 @@ class ChatServer:
             self.root.title(f"{self.host}:{self.port} - Chat Server")
 
             self.setup_chat_interface()
+            self.load_chat_history()  # Load chat history
             self.start_accepting_thread()
         except (ValueError, socket.error) as e:
             logging.error("Fehler beim Starten des Servers \n%s", traceback.format_exc())
@@ -163,6 +166,8 @@ class ChatServer:
         self.messages_area.configure(state='disabled')
         self.messages_area.see(tk.END)
 
+        self.save_chat_history(f"[{currentTime}] {message}\n")  # Save chat history
+
         for client in self.clients:
             try:
                 if self.encryption_methods[client] == "RSA":
@@ -196,6 +201,20 @@ class ChatServer:
         connected_users_message = "Connected Users:\n" + "\n".join(client_info_list)
         self.broadcast_message(connected_users_message)
 
+    def save_chat_history(self, message):
+        # Speichert die Chat-Historie in einer Datei
+        with open(CHAT_HISTORY_FILE, 'a') as file:
+            file.write(message)
+
+    def load_chat_history(self):
+        # Lädt die Chat-Historie aus einer Datei
+        if os.path.exists(CHAT_HISTORY_FILE):
+            with open(CHAT_HISTORY_FILE, 'r') as file:
+                chat_history = file.read()
+                self.messages_area.configure(state='normal')
+                self.messages_area.insert(tk.END, chat_history)
+                self.messages_area.configure(state='disabled')
+                self.messages_area.see(tk.END)
 
     def show_error_message(self, message):
         # Fehlernachricht in der Benutzeroberfläche anzeigen
